@@ -11,15 +11,14 @@ Fluent LINQ and functional collection query pipeline for Alya: filter, map, sort
 
 ## 🌟 Features
 
-- ⚡ **Lightweight & High Performance**: Minimal memory overhead, zero runtime bloat, and fast native execution
-- 🧩 **Modular Architecture**: Layered multi-module design featuring a clean public facade (`src/lib.alya`), rich data models (`src/types.alya`), and encapsulated core formatters (`src/core/formatter.alya`)
-- 🔒 **Public/Private Visibility (`pub`)**: Fine-grained export control with `pub` for public functions, structs, and enums, keeping internal helper functions private and encapsulated
-- 🎭 **Structural Duck Typing & Interfaces**: Dynamic interface dispatch (`Summarizable`, `Describable`) without brittle inheritance hierarchies
-- 📦 **Rich Domain Models & Enums**: Idiomatic `enum` types (`LinqStatus`, `LinqPriority`, `LinqStyle`) and typed data containers (`LinqConfig`, `LinqResult`, `LinqStats`)
-- 🎯 **Advanced Pattern Matching**: Clean branching with `when` expressions, range matching, and condition guards
-- 🛡️ **Defensive Result Pattern**: Structured error handling and outcome encapsulation with `ok_result` and `error_result`
-- 🧪 **Enterprise Test & Benchmark Suite**: 100% test coverage with standard assertions (`std/test`) and micro-benchmarking (`std/test` bench runner)
-- 🚩 **Feature-Gated API Slices**: Optional capability slices via `[features]` in `alya.toml` (`default = ["extras"]`) and `@cfg(feature = "extras")` gating with a `@cfg(not(feature = "extras"))` fallback stub (see `src/core/extras.alya`)
+- ⚡ **Lightweight & High Performance**: Clean native collection pipelines without heap overhead or intermediate bloat
+- 🔄 **Fluent Pipeline (`query`)**: Chain operations cleanly with `query(arr).where(...).map(...).to_array()`
+- 🔍 **Filtering & Slicing**: `where`, `filter`, `take`, `take_while`, `skip`, `skip_while`, `distinct`, `distinct_by`
+- 🗺️ **Transformations**: `map`, `flat_map`, `chunk`, `window`, `zip`, `concat`, `reverse`
+- 📊 **Sorting & Grouping**: `order_by`, `order_by_desc`, and key-based `group_by` returning bucket maps
+- 📈 **Aggregations & Reductions**: `sum`, `min`, `max`, `average`, `count`, `aggregate` (fold/reduce), and `for_each`
+- 🎯 **Search & Quantifiers**: `any`, `all`, `first`, `last`, `find`, `contains`
+- 🧪 **Enterprise Test Suite**: 100% test coverage with automated unit tests and benchmark throughput measurements
 
 ---
 
@@ -31,25 +30,21 @@ linq/
 ├── .editorconfig           # Uniform formatting rules across IDEs and editors
 ├── .gitignore              # Ecosystem standard ignore filters
 ├── .vscode/                # VS Code workspace settings, DAP launch configurations & tasks
-├── alya.toml               # Package manifest with dependencies, [features] and optional [build]
-├── c/                      # (Optional) Native C sources for zero-dependency FFI packages
+├── alya.toml               # Package manifest with dependencies and metadata
 ├── src/
-│   ├── lib.alya            # Public API facade (pub exports, re-exports & pipeline runners)
-│   ├── types.alya          # Data models, pub enums, pub structs, and struct methods
-│   ├── ffi.alya            # (Optional) Native extern "C" declarations
-│   └── core/               # Subdirectory module hierarchy
-│       ├── formatter.alya  # Domain formatting routines, salutation builders & pattern matchers
-│       └── extras.alya     # Feature-gated (`extras`) optional API slice with `@cfg` gating
+│   ├── lib.alya            # Public API facade and constructor exports
+│   ├── types.alya          # Core Enumerable struct definition
+│   └── pipeline.alya       # Fluent query chain transformation & terminal methods
 ├── examples/
-│   └── demo.alya           # Comprehensive runnable walkthrough of all package capabilities
+│   └── demo.alya           # Comprehensive runnable walkthrough of all query operations
 ├── tests/
-│   └── test_basic.alya     # Automated test suite with 100% feature coverage
+│   └── test_basic.alya     # Automated test suite with 60+ test assertions
 └── benches/
-    └── bench_basic.alya    # Micro-benchmarks measuring performance and throughput
+    └── bench_basic.alya    # Micro-benchmarks measuring pipeline throughput
 ```
 
 > [!NOTE]
-> **Visibility & Modularity:** Symbols annotated with `pub` (`pub function`, `pub struct`, `pub enum`, `pub interface`) are exported to external consumers and re-exporting modules. Symbols without `pub` remain strictly internal to their declaring module, preventing symbol collisions and implementation leakage.
+> **Visibility & Modularity:** Symbols annotated with `pub` (`pub function`, `pub struct`) are exported to external callers. Internal pipeline transformations remain clean and encapsulated.
 
 ---
 
@@ -74,21 +69,33 @@ alya install
 ## 🚀 Quick Start
 
 ```alya
-import "linq" as pkg
+import "linq" as linq
+
+function is_even(n)
+    return n % 2 == 0
+end
+
+function square(n)
+    return n * n
+end
 
 function main()
-    # 1. Basic facade call with default parameter
-    let greeting = pkg::hello()
-    say f"Greeting:  {greeting}"
+    # 1. Fluent filter, map, and materialization
+    let numbers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    let result = linq::query(numbers)
+        .where(is_even)
+        .map(square)
+        .to_array()
 
-    # 2. Struct configuration with priority, style, and methods
-    let cfg = pkg::new_config("Community", 5, pkg::LinqPriority.High, pkg::LinqStyle.Formal)
-    say f"Summary:   {cfg.summary()}"
-    say f"Formatted: {pkg::core_format_custom(cfg)}"
+    say f"Even squares: {result}"
 
-    # 3. Processing pipeline returning Result model
-    let res = pkg::process("Analytics", 3, pkg::LinqPriority.Critical)
-    say f"Outcome:   {res.message}"
+    # 2. Sequence generation and aggregation
+    let total = linq::range(1, 100).sum()
+    say f"Sum 1..100: {total}"
+
+    # 3. Pagination with skip and take
+    let page = linq::query(numbers).skip(3).take(4).to_array()
+    say f"Page 2 items: {page}"
 end
 
 main()
@@ -100,45 +107,42 @@ main()
 
 | Symbol | Visibility | Description |
 |---|---|---|
-| `hello(name = "World")` | `pub function` | Returns a formatted greeting string. Defaults to `"World"` if null or empty. |
-| `new_config(name, count, priority, style)` | `pub function` | Factory constructing a `LinqConfig` with sensible defaults. |
-| `make_config(name, count, priority, style, enabled, tags)` | `pub function` | Full constructor for `LinqConfig`. |
-| `process(label, count, priority)` | `pub function` | Runs processing pipeline, returning an `ok_result` `LinqResult`. |
-| `process_batch(labels)` | `pub function` | Formats an array of labels in batch, returning an array of strings. |
-| `ok_result(value, message)` | `pub function` | Constructs a successful `LinqResult` container (`status = 0`). |
-| `error_result(message, errors)` | `pub function` | Constructs a failed `LinqResult` container (`status = 1`). |
-| `make_stats(total, passed, failed, skipped)` | `pub function` | Constructs a `LinqStats` metrics record. |
-| `format_summary(cfg)` | `pub function` | Formats summary of a config instance (satisfies `Summarizable`). |
-| `format_description(cfg)` | `pub function` | Formats description of a config instance (satisfies `Describable`). |
-| `format_config(config)` | `pub function` | Multi-field formatter producing descriptive overview of a `LinqConfig`. |
-| `format_result(result)` | `pub function` | Formats a `LinqResult` into `[OK]` or `[ERROR]` status line. |
-| `format_stats(stats)` | `pub function` | Formats total checked items and success rate percentage. |
-| `clamp(n, min_val, max_val)` | `pub function` | Clamps an integer value to the closed range `[min_val, max_val]`. |
-| `pluralize(n, singular, plural)` | `pub function` | Pattern-matches count to return singular or plural noun form. |
-| `repeat_string(label, count)` | `pub function` | Repeats a string into an array of `count` items. |
-| `extra_greeting(name = "World")` | `pub function` (`extras` feature, default-on) | Enthusiastic greeting slice gated by `@cfg(feature = "extras")`; stub throws a descriptive error when the feature is off. |
-| `Summarizable` | `pub interface` | Structural contract requiring `summary(self) -> string`. |
-| `Describable` | `pub interface` | Structural contract requiring `describe(self) -> string` and `is_valid(self) -> int`. |
-| `LinqStatus` | `pub enum` | Lifecycle status codes (`Pending = 0`, `Active = 1`, `Archived = 2`, `Error = 3`). |
-| `LinqPriority` | `pub enum` | Priority tiers (`Low = 0`, `Normal = 1`, `High = 2`, `Critical = 3`). |
-| `LinqStyle` | `pub enum` | Presentation styles (`Standard = 0`, `Formal = 1`, `Casual = 2`). |
-| `LinqConfig` | `pub struct` | Primary configuration model (`name`, `count`, `priority`, `style`, `enabled`, `tags`). |
-| `LinqConfig.summary()` | `pub method` | Single-line formatted summary (satisfies `Summarizable`). |
-| `LinqConfig.describe()` | `pub method` | Detailed multi-field description (satisfies `Describable`). |
-| `LinqConfig.is_valid()` | `pub method` | Validation guard returning 1 if valid, 0 otherwise. |
-| `LinqConfig.is_enabled()` | `pub method` | Returns 1 if active, 0 if disabled. |
-| `LinqConfig.with_name(new_name)` | `pub method` | Immutable copy with updated name. |
-| `LinqConfig.with_priority(new_prio)` | `pub method` | Immutable copy with updated priority tier. |
-| `LinqResult` | `pub struct` | Operation outcome model (`value`, `status`, `message`, `errors`). |
-| `LinqResult.is_ok()` | `pub method` | Returns 1 if successful (`status == 0`), 0 otherwise. |
-| `LinqResult.is_error()` | `pub method` | Returns 1 if error (`status != 0`), 0 otherwise. |
-| `LinqResult.unwrap_or(fallback)` | `pub method` | Returns message on success, or fallback on error. |
-| `LinqStats` | `pub struct` | Run statistics model (`total`, `passed`, `failed`, `skipped`). |
-| `LinqStats.total_checked()` | `pub method` | Sum of passed and failed items count. |
-| `LinqStats.success_rate()` | `pub method` | Computed percentage string (e.g. `"95%"`). |
-
-> [!TIP]
-> **Internal Helpers & Documentation:** Public symbols are documented with `##` Markdown docstrings, enabling automatic API documentation generation via `alya doc`. Private functions such as `build_salutation` and `build_priority_label` in `src/core/formatter.alya` are not annotated with `pub` and remain encapsulated within their respective modules.
+| `query(source)` | `pub function` | Wraps an array into an `Enumerable` query pipeline. |
+| `from_array(source)` | `pub function` | Alias for `query(source)`. |
+| `range(start, count)` | `pub function` | Generates a sequential integer range `[start .. start + count - 1]`. |
+| `replicate(item, count)` | `pub function` | Generates an `Enumerable` sequence containing `item` repeated `count` times. |
+| `Enumerable.where(predicate)` | `pub method` | Filters elements matching the boolean predicate function. |
+| `Enumerable.filter(predicate)` | `pub method` | Alias for `where(predicate)`. |
+| `Enumerable.take(count)` | `pub method` | Returns the first `count` elements of the sequence. |
+| `Enumerable.take_while(predicate)` | `pub method` | Takes elements until the predicate returns false. |
+| `Enumerable.skip(count)` | `pub method` | Bypasses the first `count` elements and returns the remainder. |
+| `Enumerable.skip_while(predicate)` | `pub method` | Bypasses elements while the predicate returns true. |
+| `Enumerable.distinct()` | `pub method` | Filters duplicate elements preserving first-seen order. |
+| `Enumerable.distinct_by(key_fn)` | `pub method` | Filters duplicate elements based on a key extraction function. |
+| `Enumerable.map(transform)` | `pub method` | Projects each element into a new form using the transform function. |
+| `Enumerable.flat_map(transform)` | `pub method` | Maps each element to an array and flattens the resulting sequences. |
+| `Enumerable.chunk(size)` | `pub method` | Splits elements into chunks of fixed `size`. |
+| `Enumerable.window(size)` | `pub method` | Emits sliding windows of length `size` across elements. |
+| `Enumerable.zip(other, selector)` | `pub method` | Merges two sequences element-wise with a selector combiner. |
+| `Enumerable.concat(other)` | `pub method` | Concatenates another array or Enumerable sequence. |
+| `Enumerable.reverse()` | `pub method` | Inverts the order of elements in the pipeline. |
+| `Enumerable.order_by(key_fn)` | `pub method` | Sorts elements in ascending order using key extractor (or direct comparison). |
+| `Enumerable.order_by_desc(key_fn)` | `pub method` | Sorts elements in descending order using key extractor. |
+| `Enumerable.group_by(key_fn)` | `pub method` | Groups elements by key into a map of `{ key: [elements] }`. |
+| `Enumerable.to_array()` | `pub method` | Materializes the query pipeline into an array. |
+| `Enumerable.count()` | `pub method` | Returns the number of elements in the sequence. |
+| `Enumerable.any(predicate)` | `pub method` | Returns true if any element satisfies the predicate (or if non-empty when predicate is null). |
+| `Enumerable.all(predicate)` | `pub method` | Returns true if all elements satisfy the predicate. |
+| `Enumerable.first()` | `pub method` | Returns the first element or null if empty. |
+| `Enumerable.last()` | `pub method` | Returns the last element or null if empty. |
+| `Enumerable.find(predicate)` | `pub method` | Returns the first element satisfying the predicate, or null. |
+| `Enumerable.contains(target)` | `pub method` | Returns true if target value exists in the sequence. |
+| `Enumerable.sum()` | `pub method` | Computes the arithmetic sum of numeric elements. |
+| `Enumerable.min()` | `pub method` | Returns the minimum numeric element in the sequence. |
+| `Enumerable.max()` | `pub method` | Returns the maximum numeric element in the sequence. |
+| `Enumerable.average()` | `pub method` | Returns the arithmetic mean of numeric elements. |
+| `Enumerable.aggregate(initial, accumulator)` | `pub method` | Applies an accumulator reduction function over elements. |
+| `Enumerable.for_each(action)` | `pub method` | Invokes an action callback for each element. |
 
 ---
 
@@ -148,13 +152,6 @@ Run the automated test suite using `alya test`:
 
 ```bash
 alya test
-```
-
-Exercise feature selection (the `extras` slice is default-on):
-
-```bash
-alya test --features extras
-alya test --no-default-features
 ```
 
 Generate static API documentation:

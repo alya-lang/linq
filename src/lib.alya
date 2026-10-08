@@ -1,197 +1,85 @@
 ## linq Library Facade
 ##
 ## Part of the Alya Language package ecosystem (https://github.com/alya-lang).
-## Serves as the primary public entry point and facade for the linq package,
-## exposing models, enums, constructors, interfaces, and processing workflows.
+## Serves as the primary public entry point for the linq package,
+## providing fluent query pipelines, filtering, projection, grouping, and aggregation.
 
 import "./types.alya"
-import "./core/formatter.alya"
-@cfg(feature = "extras")
-import "./core/extras.alya"
+import "./pipeline.alya"
 
 # ───────────────────────────────────────────────────────────────
-# Primary Facade APIs
+# Primary Factory APIs
 # ───────────────────────────────────────────────────────────────
 
-## Formats and returns a greeting message for the specified recipient.
-##
-## Defaults to `"World"` if the name parameter is omitted, empty, or null.
+## Initiates a fluent query pipeline from an existing array or collection.
 ##
 ## ### Parameters
-## - `name`: The name of the recipient to greet. Defaults to `"World"`.
+## - `arr`: Source array of elements. Defaults to empty array.
 ##
 ## ### Returns
-## A formatted greeting string, e.g. `"Hello, World!"`.
+## An `Enumerable` pipeline instance ready for chaining operations.
 ##
 ## ### Examples
 ## ```alya
-## let msg = hello("Alya")
-## say msg # "Hello, Alya!"
+## let evens = query([1, 2, 3, 4]).where(fn(x) return x % 2 == 0 end).to_array()
 ## ```
-pub function hello(name = "World") -> string
-    let clean = sanitize_name(name)
-    return core_format_greeting(clean)
+pub function query(arr = []) -> Enumerable
+    return make_enumerable(arr)
 end
 
-## Constructs a new configuration model instance with specified or default values.
+## Alias for `query`. Creates a query pipeline wrapping `arr`.
 ##
 ## ### Parameters
-## - `name`: Target recipient or entity name. Defaults to `"World"`.
-## - `count`: Number of iterations or repetition limit. Defaults to `1`.
-## - `priority`: Operational priority level (`LinqPriority`). Defaults to `LinqPriority.Normal`.
-## - `style`: Formality style variant code (`LinqStyle`). Defaults to `LinqStyle.Standard`.
+## - `arr`: Source array. Defaults to empty array.
 ##
 ## ### Returns
-## A newly initialized `LinqConfig` instance.
-##
-## ### Examples
-## ```alya
-## let cfg = new_config("Community", 5, LinqPriority.High, LinqStyle.Formal)
-## ```
-pub function new_config(name = "World", count: int = 1, priority: int = LinqPriority.Normal, style: int = LinqStyle.Standard) -> LinqConfig
-    return make_config(name, count, priority, style)
+## An `Enumerable` instance.
+pub function from_array(arr = []) -> Enumerable
+    return make_enumerable(arr)
 end
 
-## Processes a configuration label through the formatting pipeline, returning a `LinqResult`.
+## Generates an Enumerable sequence of consecutive integers starting at `start`.
 ##
 ## ### Parameters
-## - `label`: The target entity label string. Defaults to `"World"`.
-## - `count`: Counter or repetition count. Defaults to `1`.
-## - `priority`: Priority tier. Defaults to `LinqPriority.Normal`.
+## - `start`: First integer in the sequence. Defaults to 0.
+## - `count`: Number of sequential integers to generate. Defaults to 10.
 ##
 ## ### Returns
-## A successful `LinqResult` containing the formatted summary string.
+## An `Enumerable` with integers from `start` to `start + count - 1`.
 ##
 ## ### Examples
 ## ```alya
-## let res = process("Alice", 3, LinqPriority.High)
-## say res.message # "OK"
+## let squares = range(1, 5).map(fn(x) return x * x end).to_array() # [1, 4, 9, 16, 25]
 ## ```
-pub function process(label = "World", count: int = 1, priority: int = LinqPriority.Normal) -> LinqResult
-    let cfg = make_config(label, count, priority)
-    let formatted = format_config(cfg)
-    return ok_result(formatted, "OK")
-end
-
-## Processes an array of labels in batch, returning an array of formatted strings.
-##
-## Handles null input safely by returning an empty array.
-##
-## ### Parameters
-## - `labels`: Array of label strings to process (or null).
-##
-## ### Returns
-## An array of formatted result strings.
-##
-## ### Examples
-## ```alya
-## let results = process_batch(["Alpha", "Beta"])
-## ```
-pub function process_batch(labels) -> array
-    if labels is null
-        return []
+pub function range(start: int = 0, count: int = 10) -> Enumerable
+    let res = []
+    let i = 0
+    while i < count
+        res.push(start + i)
+        i += 1
     end
-
-    let configs = []
-    for lbl in labels
-        configs.push(make_config(lbl, 1, LinqPriority.Normal))
-    end
-    return format_batch(configs)
+    return make_enumerable(res)
 end
 
-## Formats and returns the summary representation of a configuration.
-##
-## Demonstrates struct method dispatch and interface satisfaction (`Summarizable`).
+## Generates an Enumerable sequence containing `count` copies of `val`.
 ##
 ## ### Parameters
-## - `cfg`: A `LinqConfig` instance.
+## - `val`: Value to repeat.
+## - `count`: Number of times to repeat. Defaults to 1.
 ##
 ## ### Returns
-## The string returned by the config's `summary()` method.
+## An `Enumerable` holding `count` repeated values.
 ##
 ## ### Examples
 ## ```alya
-## let cfg = new_config("Community", 3)
-## say format_summary(cfg)
+## let items = replicate("A", 3).to_array() # ["A", "A", "A"]
 ## ```
-pub function format_summary(cfg: LinqConfig) -> string
-    return cfg.summary()
-end
-
-## Formats and returns the description of a configuration.
-##
-## Demonstrates struct method dispatch and interface satisfaction (`Describable`).
-##
-## ### Parameters
-## - `cfg`: A `LinqConfig` instance.
-##
-## ### Returns
-## The string returned by `describe()`.
-##
-## ### Examples
-## ```alya
-## let cfg = new_config("Project", 1)
-## say format_description(cfg)
-## ```
-pub function format_description(cfg: LinqConfig) -> string
-    return cfg.describe()
-end
-
-## Clamps an integer to the closed interval `[min_val, max_val]`.
-##
-## ### Parameters
-## - `n`: Value to clamp.
-## - `min_val`: Lower bound.
-## - `max_val`: Upper bound.
-##
-## ### Returns
-## Clamped integer within the specified range.
-pub function clamp(n: int, min_val: int, max_val: int) -> int
-    return clamp_count(n, min_val, max_val)
-end
-
-## Returns singular or plural form based on item count.
-##
-## ### Parameters
-## - `n`: The item count.
-## - `singular`: Word form for count == 1.
-## - `plural`: Word form for counts != 1.
-##
-## ### Returns
-## The selected string based on `n`.
-pub function pluralize(n: int, singular: string, plural: string) -> string
-    return when n
-        is 1 => singular
-        else => plural
+pub function replicate(val, count: int = 1) -> Enumerable
+    let res = []
+    let i = 0
+    while i < count
+        res.push(val)
+        i += 1
     end
+    return make_enumerable(res)
 end
-
-## Returns an array repeating the given string `count` times.
-##
-## ### Parameters
-## - `label`: String to repeat.
-## - `count`: Number of occurrences.
-##
-## ### Returns
-## Array of repeated strings.
-pub function repeat_string(label: string, count: int) -> array
-    return repeat_label(label, count)
-end
-
-# ───────────────────────────────────────────────────────────────
-# Feature-Gated API Fallback Stubs
-# ───────────────────────────────────────────────────────────────
-
-# The slim-view stub below keeps the public API surface stable when the
-# `extras` feature is disabled, so callers get a clear descriptive error
-# instead of an undefined reference (param unused by design).
-# alya-lint: disable unused-param
-## Fallback stub for `extra_greeting` when the `extras` feature is disabled.
-##
-## Rebuild with default features (or `--features extras`) for the full
-## implementation in `src/core/extras.alya`.
-@cfg(not(feature = "extras"))
-pub function extra_greeting(name = "World") -> string
-    throw "extras feature is disabled (rebuild with default features or --features extras)"
-end
-# alya-lint: enable unused-param

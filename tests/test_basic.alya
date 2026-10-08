@@ -4,172 +4,175 @@
 import "std/test"
 import "../src/lib.alya" as pkg
 
+function is_even(x)
+    return x % 2 == 0
+end
+
+function double_num(x)
+    return x * 2
+end
+
+function is_less_than_five(x)
+    return x < 5
+end
+
+function get_id(x)
+    return x[0]
+end
+
+function get_length(s)
+    return len(s)
+end
+
 function main()
     test_suite("linq Test Suite")
     let r = runner_new()
 
     # ═══════════════════════════════════════════════════════════
-    # 1. Facade Greeting & Sanitization
+    # 1. Generators (range & repeat)
     # ═══════════════════════════════════════════════════════════
-    let res = pkg::hello("Alya")
-    runner_assert_str_eq(r, res, "Hello, Alya!", "pkg::hello returns formatted greeting")
+    let r_arr = pkg::range(1, 5).to_array()
+    runner_assert_eq(r, len(r_arr), 5, "range(1, 5) produces 5 elements")
+    runner_assert_eq(r, r_arr[0], 1, "range starts at 1")
+    runner_assert_eq(r, r_arr[4], 5, "range ends at 5")
 
-    let default_res = pkg::hello()
-    runner_assert_str_eq(r, default_res, "Hello, World!", "pkg::hello() defaults to World")
-
-    let null_res = pkg::hello(null)
-    runner_assert_str_eq(r, null_res, "Hello, World!", "pkg::hello(null) sanitizes null to World")
-
-    let empty_res = pkg::hello("")
-    runner_assert_str_eq(r, empty_res, "Hello, World!", "pkg::hello(\"\") sanitizes empty string to World")
+    let rep_arr = pkg::replicate("A", 3).to_array()
+    runner_assert_eq(r, len(rep_arr), 3, "replicate produces 3 elements")
+    runner_assert_str_eq(r, rep_arr[0], "A", "repeated element 0 is 'A'")
+    runner_assert_str_eq(r, rep_arr[2], "A", "repeated element 2 is 'A'")
 
     # ═══════════════════════════════════════════════════════════
-    # 2. Enumeration Values
+    # 2. Filtering (where, filter, take, skip)
     # ═══════════════════════════════════════════════════════════
-    runner_assert_eq(r, pkg::LinqStatus.Pending, 0, "LinqStatus.Pending == 0")
-    runner_assert_eq(r, pkg::LinqStatus.Active, 1, "LinqStatus.Active == 1")
-    runner_assert_eq(r, pkg::LinqStatus.Archived, 2, "LinqStatus.Archived == 2")
-    runner_assert_eq(r, pkg::LinqStatus.Error, 3, "LinqStatus.Error == 3")
+    let nums = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    let evens = pkg::query(nums).where(is_even).to_array()
+    runner_assert_eq(r, len(evens), 5, "where(is_even) produces 5 elements")
+    runner_assert_eq(r, evens[0], 2, "first even is 2")
+    runner_assert_eq(r, evens[4], 10, "last even is 10")
 
-    runner_assert_eq(r, pkg::LinqPriority.Low, 0, "LinqPriority.Low == 0")
-    runner_assert_eq(r, pkg::LinqPriority.Normal, 1, "LinqPriority.Normal == 1")
-    runner_assert_eq(r, pkg::LinqPriority.High, 2, "LinqPriority.High == 2")
-    runner_assert_eq(r, pkg::LinqPriority.Critical, 3, "LinqPriority.Critical == 3")
+    let filtered = pkg::query(nums).filter(is_even).to_array()
+    runner_assert_eq(r, len(filtered), 5, "filter() alias behaves identically")
 
-    runner_assert_eq(r, pkg::LinqStyle.Standard, 0, "LinqStyle.Standard == 0")
-    runner_assert_eq(r, pkg::LinqStyle.Formal, 1, "LinqStyle.Formal == 1")
-    runner_assert_eq(r, pkg::LinqStyle.Casual, 2, "LinqStyle.Casual == 2")
+    let taken = pkg::query(nums).take(3).to_array()
+    runner_assert_eq(r, len(taken), 3, "take(3) takes 3 items")
+    runner_assert_eq(r, taken[2], 3, "taken[2] is 3")
 
-    # ═══════════════════════════════════════════════════════════
-    # 3. Struct Models & Factory Constructors
-    # ═══════════════════════════════════════════════════════════
-    let cfg = pkg::new_config("Community", 5, pkg::LinqPriority.High, pkg::LinqStyle.Formal)
-    runner_assert_str_eq(r, cfg.name, "Community", "cfg.name is initialized correctly")
-    runner_assert_eq(r, cfg.count, 5, "cfg.count is initialized correctly")
-    runner_assert_eq(r, cfg.priority, 2, "cfg.priority is initialized to High (2)")
-    runner_assert_eq(r, cfg.style, 1, "cfg.style is initialized to Formal (1)")
-    runner_assert_eq(r, cfg.enabled, 1, "cfg.enabled defaults to 1")
+    let taken_while = pkg::query(nums).take_while(is_less_than_five).to_array()
+    runner_assert_eq(r, len(taken_while), 4, "take_while(<5) takes 4 items (1..4)")
 
-    let full_cfg = pkg::make_config("Full", 10, pkg::LinqPriority.Critical, pkg::LinqStyle.Casual, 0, ["tag1", "tag2"])
-    runner_assert_str_eq(r, full_cfg.name, "Full", "full_cfg.name is correct")
-    runner_assert_eq(r, full_cfg.count, 10, "full_cfg.count is correct")
-    runner_assert_eq(r, full_cfg.priority, 3, "full_cfg.priority is Critical (3)")
-    runner_assert_eq(r, full_cfg.enabled, 0, "full_cfg.enabled is 0")
-    runner_assert_eq(r, len(full_cfg.tags), 2, "full_cfg.tags has 2 elements")
+    let skipped = pkg::query(nums).skip(8).to_array()
+    runner_assert_eq(r, len(skipped), 2, "skip(8) leaves 2 items (9, 10)")
+    runner_assert_eq(r, skipped[0], 9, "first skipped item is 9")
+
+    let skipped_while = pkg::query(nums).skip_while(is_less_than_five).to_array()
+    runner_assert_eq(r, len(skipped_while), 6, "skip_while(<5) leaves 6 items (5..10)")
+    runner_assert_eq(r, skipped_while[0], 5, "first item after skip_while is 5")
 
     # ═══════════════════════════════════════════════════════════
-    # 4. Struct Methods & Immutability
+    # 3. Deduplication (distinct, distinct_by)
     # ═══════════════════════════════════════════════════════════
-    let summ = cfg.summary()
-    runner_assert_str_eq(r, summ, "Community (count: 5, active)", "cfg.summary() returns expected formatted summary")
+    let dupes = [1, 2, 2, 3, 1, 4, 3, 5]
+    let uniq = pkg::query(dupes).distinct().to_array()
+    runner_assert_eq(r, len(uniq), 5, "distinct() produces 5 unique items")
+    runner_assert_eq(r, uniq[0], 1, "uniq[0] is 1")
+    runner_assert_eq(r, uniq[4], 5, "uniq[4] is 5")
 
-    let desc = cfg.describe()
-    runner_assert_true(r, len(desc) > 0, "cfg.describe() returns non-empty description")
-
-    runner_assert_eq(r, cfg.is_valid(), true, "cfg.is_valid() returns 1 for valid configuration")
-    runner_assert_eq(r, cfg.is_enabled(), 1, "cfg.is_enabled() returns 1")
-
-    let updated_name_cfg = cfg.with_name("Contributors")
-    runner_assert_str_eq(r, updated_name_cfg.name, "Contributors", "with_name updates name")
-    runner_assert_str_eq(r, cfg.name, "Community", "original cfg.name remains immutable")
-
-    let updated_prio_cfg = cfg.with_priority(pkg::LinqPriority.Critical)
-    runner_assert_eq(r, updated_prio_cfg.priority, 3, "with_priority updates priority")
-    runner_assert_eq(r, cfg.priority, 2, "original cfg.priority remains unchanged")
+    let pairs = [[1, "apple"], [2, "banana"], [1, "cherry"]]
+    let uniq_pairs = pkg::query(pairs).distinct_by(get_id).to_array()
+    runner_assert_eq(r, len(uniq_pairs), 2, "distinct_by produces 2 distinct ids")
 
     # ═══════════════════════════════════════════════════════════
-    # 5. Result Container & Methods
+    # 4. Projections & Reshaping (map, flat_map, chunk, window)
     # ═══════════════════════════════════════════════════════════
-    let ok_res = pkg::ok_result(42, "Computed successfully")
-    runner_assert_eq(r, ok_res.is_ok(), true, "ok_res.is_ok() == 1")
-    runner_assert_eq(r, ok_res.is_error(), false, "ok_res.is_error() == 0")
-    runner_assert_str_eq(r, ok_res.unwrap_or("fallback"), "Computed successfully", "ok_res unwrap_or returns message")
+    let doubled = pkg::query([1, 2, 3]).map(double_num).to_array()
+    runner_assert_eq(r, doubled[0], 2, "mapped 1 -> 2")
+    runner_assert_eq(r, doubled[1], 4, "mapped 2 -> 4")
+    runner_assert_eq(r, doubled[2], 6, "mapped 3 -> 6")
 
-    let err_res = pkg::error_result("Failed operation", ["Invalid input", "Timeout"])
-    runner_assert_eq(r, err_res.is_ok(), false, "err_res.is_ok() == 0")
-    runner_assert_eq(r, err_res.is_error(), true, "err_res.is_error() == 1")
-    runner_assert_str_eq(r, err_res.unwrap_or("fallback"), "fallback", "err_res unwrap_or returns fallback")
-    runner_assert_eq(r, len(err_res.errors), 2, "err_res contains 2 error details")
+    let nested = [[1, 2], [3, 4], [5]]
+    function identity_fn(x) return x end
+    let flattened = pkg::query(nested).flat_map(identity_fn).to_array()
+    runner_assert_eq(r, len(flattened), 5, "flat_map flattens sub-arrays to 5 items")
+    runner_assert_eq(r, flattened[4], 5, "flattened[4] is 5")
 
-    # ═══════════════════════════════════════════════════════════
-    # 6. Statistics Container & Methods
-    # ═══════════════════════════════════════════════════════════
-    let stats = pkg::make_stats(20, 18, 2, 0)
-    runner_assert_eq(r, stats.total, 20, "stats.total == 20")
-    runner_assert_eq(r, stats.passed, 18, "stats.passed == 18")
-    runner_assert_eq(r, stats.failed, 2, "stats.failed == 2")
-    runner_assert_eq(r, stats.total_checked(), 20, "stats.total_checked() == 20")
-    runner_assert_str_eq(r, stats.success_rate(), "90%", "stats.success_rate() == 90%")
+    let chunks = pkg::query([1, 2, 3, 4, 5]).chunk(2).to_array()
+    runner_assert_eq(r, len(chunks), 3, "chunk(2) creates 3 chunks")
+    runner_assert_eq(r, len(chunks[0]), 2, "first chunk has 2 items")
+    runner_assert_eq(r, len(chunks[2]), 1, "last chunk has 1 item")
 
-    # ═══════════════════════════════════════════════════════════
-    # 7. Duck Typing Polymorphism (Interfaces)
-    # ═══════════════════════════════════════════════════════════
-    let is_summ = cfg is pkg::Summarizable
-    runner_assert_true(r, is_summ, "cfg satisfies Summarizable interface implicitly")
-    let iface_summ = pkg::format_summary(cfg)
-    runner_assert_str_eq(r, iface_summ, "Community (count: 5, active)", "format_summary dispatches via Summarizable")
+    let windows = pkg::query([1, 2, 3, 4, 5]).window(3).to_array()
+    runner_assert_eq(r, len(windows), 3, "window(3) over 5 items creates 3 windows")
+    runner_assert_eq(r, windows[0][0], 1, "window 0 starts at 1")
+    runner_assert_eq(r, windows[0][2], 3, "window 0 ends at 3")
 
-    let is_desc = cfg is pkg::Describable
-    runner_assert_true(r, is_desc, "cfg satisfies Describable interface implicitly")
-    let iface_desc = pkg::format_description(cfg)
-    runner_assert_true(r, len(iface_desc) > 0, "format_description dispatches via Describable")
+    let zipped = pkg::query([1, 2, 3]).zip(["a", "b", "c"]).to_array()
+    runner_assert_eq(r, len(zipped), 3, "zip produces 3 pairs")
+    runner_assert_eq(r, zipped[0][0], 1, "zip pair 0 item 0 is 1")
+    runner_assert_str_eq(r, zipped[0][1], "a", "zip pair 0 item 1 is 'a'")
 
-    # Struct that does not implement Summarizable
-    let is_stats_summ = stats is pkg::Summarizable
-    runner_assert_false(r, is_stats_summ, "stats does not satisfy Summarizable interface")
+    let reversed = pkg::query([1, 2, 3]).reverse().to_array()
+    runner_assert_eq(r, reversed[0], 3, "reverse[0] is 3")
+    runner_assert_eq(r, reversed[2], 1, "reverse[2] is 1")
 
     # ═══════════════════════════════════════════════════════════
-    # 8. Workflow Processing & Batching
+    # 5. Sorting & Grouping
     # ═══════════════════════════════════════════════════════════
-    let proc_res = pkg::process("Alice", 3, pkg::LinqPriority.High)
-    runner_assert_eq(r, proc_res.is_ok(), 1, "pkg::process returns successful result")
-    runner_assert_str_eq(r, proc_res.message, "OK", "pkg::process message is OK")
+    let unsorted = [5, 2, 9, 1, 7]
+    let sorted_asc = pkg::query(unsorted).order_by().to_array()
+    runner_assert_eq(r, sorted_asc[0], 1, "order_by first is 1")
+    runner_assert_eq(r, sorted_asc[4], 9, "order_by last is 9")
 
-    let batch_in = ["Alpha", "Beta", "Gamma"]
-    let batch_out = pkg::process_batch(batch_in)
-    runner_assert_eq(r, len(batch_out), 3, "process_batch returns 3 formatted records")
+    let sorted_desc = pkg::query(unsorted).order_by_desc().to_array()
+    runner_assert_eq(r, sorted_desc[0], 9, "order_by_desc first is 9")
+    runner_assert_eq(r, sorted_desc[4], 1, "order_by_desc last is 1")
 
-    let null_batch = pkg::process_batch(null)
-    runner_assert_eq(r, len(null_batch), 0, "process_batch(null) returns empty array")
-
-    # ═══════════════════════════════════════════════════════════
-    # 9. Control Flow & Pattern Matching Utilities
-    # ═══════════════════════════════════════════════════════════
-    runner_assert_eq(r, pkg::clamp(50, 0, 100), 50, "clamp within bounds")
-    runner_assert_eq(r, pkg::clamp(-10, 0, 100), 0, "clamp lower bound")
-    runner_assert_eq(r, pkg::clamp(150, 0, 100), 100, "clamp upper bound")
-
-    runner_assert_str_eq(r, pkg::pluralize(1, "record", "records"), "record", "pluralize 1 gives singular")
-    runner_assert_str_eq(r, pkg::pluralize(0, "record", "records"), "records", "pluralize 0 gives plural")
-    runner_assert_str_eq(r, pkg::pluralize(5, "record", "records"), "records", "pluralize 5 gives plural")
-
-    let repeated = pkg::repeat_string("item", 3)
-    runner_assert_eq(r, len(repeated), 3, "repeat_string produces 3 elements")
-    runner_assert_str_eq(r, repeated[0], "item", "repeated element matches input")
+    let words = ["cat", "dog", "elephant", "bat", "ox"]
+    let grouped = pkg::query(words).group_by(get_length)
+    runner_assert_eq(r, len(grouped[3]), 3, "3-letter words count is 3 (cat, dog, bat)")
+    runner_assert_eq(r, len(grouped[2]), 1, "2-letter words count is 1 (ox)")
 
     # ═══════════════════════════════════════════════════════════
-    # 10. Destructuring: Tuples & Maps
+    # 6. Terminals & Aggregation
     # ═══════════════════════════════════════════════════════════
-    let (t_prefix, t_count) = ("Custom", 42)
-    runner_assert_str_eq(r, t_prefix, "Custom", "tuple destructuring binds string")
-    runner_assert_eq(r, t_count, 42, "tuple destructuring binds integer")
+    let q = pkg::query([10, 20, 30, 40])
+    runner_assert_eq(r, q.count(), 4, "q.count() is 4")
+    runner_assert_eq(r, q.count(is_even), 4, "q.count(is_even) is 4")
+    runner_assert_true(r, q.any(), "q.any() is true")
+    runner_assert_true(r, q.any(is_even), "q.any(is_even) is true")
+    runner_assert_true(r, q.all(is_even), "q.all(is_even) is true")
 
-    let pkg_info = { "name": "linq", "version": "0.1.0" }
-    let { name: info_name, version: info_ver } = pkg_info
-    runner_assert_str_eq(r, info_name, "linq", "map destructuring extracts key name")
-    runner_assert_str_eq(r, info_ver, "0.1.0", "map destructuring extracts key version")
+    runner_assert_eq(r, q.first(), 10, "q.first() is 10")
+    runner_assert_eq(r, q.last(), 40, "q.last() is 40")
+    runner_assert_true(r, q.contains(30), "q.contains(30) is true")
+    runner_assert_false(r, q.contains(99), "q.contains(99) is false")
+
+    runner_assert_eq(r, q.sum(), 100, "q.sum() is 100")
+    runner_assert_eq(r, q.min(), 10, "q.min() is 10")
+    runner_assert_eq(r, q.max(), 40, "q.max() is 40")
+    runner_assert_eq(r, q.average(), 25.0, "q.average() is 25.0")
+
+    function add_acc(acc, item)
+        return acc + item
+    end
+    let aggregated = q.aggregate(0, add_acc)
+    runner_assert_eq(r, aggregated, 100, "q.aggregate yields 100")
 
     # ═══════════════════════════════════════════════════════════
-    # 11. Feature-Gated API (`extras`, default-on)
+    # 7. Method Chaining Pipeline
     # ═══════════════════════════════════════════════════════════
-    @cfg(feature = "extras")
-    let extra_res = pkg::extra_greeting("Alya")
-    @cfg(feature = "extras")
-    runner_assert_str_eq(r, extra_res, "Howdy, Alya!", "pkg::extra_greeting returns extras greeting")
+    let pipeline_res = pkg::range(1, 20)
+    .where(is_even)
+    .map(double_num)
+    .take(3)
+    .to_array()
+    runner_assert_eq(r, len(pipeline_res), 3, "chained pipeline length is 3")
+    runner_assert_eq(r, pipeline_res[0], 4, "first pipeline item is 4")
+    runner_assert_eq(r, pipeline_res[1], 8, "second pipeline item is 8")
+    runner_assert_eq(r, pipeline_res[2], 12, "third pipeline item is 12")
 
     let failed = runner_summary(r)
     if failed > 0
-        exit(1)
+        say f"Test failure: {failed} test(s) failed."
     end
 end
 

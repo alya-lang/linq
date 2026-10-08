@@ -1,0 +1,643 @@
+## linq Pipeline Implementation
+##
+## Part of the Alya Language package ecosystem (https://github.com/alya-lang).
+## Provides fluent querying, transformation, sorting, grouping, and aggregation over collections.
+
+import "./types.alya"
+
+## Creates a new Enumerable query pipeline wrapping the given array.
+##
+## ### Parameters
+## - `arr`: Source elements. Defaults to empty array.
+##
+## ### Returns
+## A new `Enumerable` instance.
+pub function make_enumerable(arr = []) -> Enumerable
+    return Enumerable { items: [...arr] }
+end
+
+# ───────────────────────────────────────────────────────────────
+# Filtering Operations
+# ───────────────────────────────────────────────────────────────
+
+## Filters elements based on a boolean predicate function.
+##
+## ### Parameters
+## - `predicate`: Function accepting an element and returning bool.
+##
+## ### Returns
+## A new `Enumerable` containing only elements that satisfied the predicate.
+pub function Enumerable.where(self, predicate) -> Enumerable
+    let res = []
+    for x in self.items
+        if predicate(x)
+            res.push(x)
+        end
+    end
+    return Enumerable { items: res }
+end
+
+## Alias for `where`. Filters elements satisfying the predicate.
+##
+## ### Parameters
+## - `predicate`: Function accepting an element and returning bool.
+##
+## ### Returns
+## A new filtered `Enumerable`.
+pub function Enumerable.filter(self, predicate) -> Enumerable
+    return self.where(predicate)
+end
+
+## Returns only distinct elements, removing duplicates in order of first appearance.
+##
+## ### Returns
+## A new `Enumerable` with unique elements.
+pub function Enumerable.distinct(self) -> Enumerable
+    let seen = {}
+    let res = []
+    for x in self.items
+        if x not in seen
+            seen[x] = 1
+            res.push(x)
+        end
+    end
+    return Enumerable { items: res }
+end
+
+## Returns distinct elements according to a custom key selector function.
+##
+## ### Parameters
+## - `key_fn`: Function extracting a hashable comparison key.
+##
+## ### Returns
+## A new `Enumerable` with distinct keys.
+pub function Enumerable.distinct_by(self, key_fn) -> Enumerable
+    let seen = {}
+    let res = []
+    for x in self.items
+        let k = key_fn(x)
+        if k not in seen
+            seen[k] = 1
+            res.push(x)
+        end
+    end
+    return Enumerable { items: res }
+end
+
+## Takes up to `count` elements from the beginning of the sequence.
+##
+## ### Parameters
+## - `count`: Number of items to take.
+##
+## ### Returns
+## A new `Enumerable` containing at most `count` elements.
+pub function Enumerable.take(self, count: int) -> Enumerable
+    let res = []
+    let i = 0
+    let total = len(self.items)
+    while i < count and i < total
+        res.push(self.items[i])
+        i += 1
+    end
+    return Enumerable { items: res }
+end
+
+## Takes elements from the start as long as a predicate remains true.
+##
+## ### Parameters
+## - `predicate`: Function testing each element.
+##
+## ### Returns
+## A new `Enumerable` with elements taken until the first false predicate.
+pub function Enumerable.take_while(self, predicate) -> Enumerable
+    let res = []
+    for x in self.items
+        if not predicate(x)
+            break
+        end
+        res.push(x)
+    end
+    return Enumerable { items: res }
+end
+
+## Bypasses up to `count` elements and returns the remaining elements.
+##
+## ### Parameters
+## - `count`: Number of items to skip.
+##
+## ### Returns
+## A new `Enumerable` with initial elements skipped.
+pub function Enumerable.skip(self, count: int) -> Enumerable
+    let res = []
+    let total = len(self.items)
+    let i = count
+    if i < 0
+        i = 0
+    end
+    while i < total
+        res.push(self.items[i])
+        i += 1
+    end
+    return Enumerable { items: res }
+end
+
+## Bypasses elements as long as a predicate is true, then returns all remaining items.
+##
+## ### Parameters
+## - `predicate`: Function testing each element.
+##
+## ### Returns
+## A new `Enumerable` containing elements after the predicate became false.
+pub function Enumerable.skip_while(self, predicate) -> Enumerable
+    let res = []
+    let skipping = true
+    for x in self.items
+        if skipping
+            if not predicate(x)
+                skipping = false
+                res.push(x)
+            end
+        else
+            res.push(x)
+        end
+    end
+    return Enumerable { items: res }
+end
+
+# ───────────────────────────────────────────────────────────────
+# Projection & Transformation
+# ───────────────────────────────────────────────────────────────
+
+## Transforms each element into a new form using a selector function.
+##
+## ### Parameters
+## - `selector`: Function mapping an element to a new value.
+##
+## ### Returns
+## A new `Enumerable` with projected elements.
+pub function Enumerable.map(self, selector) -> Enumerable
+    let res = []
+    for x in self.items
+        res.push(selector(x))
+    end
+    return Enumerable { items: res }
+end
+
+## Projects each element into a sub-array and flattens the resulting collections into one.
+##
+## ### Parameters
+## - `selector`: Function mapping each element to an array of items.
+##
+## ### Returns
+## A new flattened `Enumerable`.
+pub function Enumerable.flat_map(self, selector) -> Enumerable
+    let res = []
+    for x in self.items
+        let sub = selector(x)
+        for item in sub
+            res.push(item)
+        end
+    end
+    return Enumerable { items: res }
+end
+
+## Splits elements into consecutive chunks of the specified size.
+##
+## ### Parameters
+## - `size`: Maximum chunk size.
+##
+## ### Returns
+## A new `Enumerable` where each element is an array chunk.
+pub function Enumerable.chunk(self, size: int) -> Enumerable
+    let res = []
+    if size <= 0
+        return Enumerable { items: res }
+    end
+    let total = len(self.items)
+    let i = 0
+    while i < total
+        let ch = []
+        let j = 0
+        while j < size and (i + j) < total
+            ch.push(self.items[i + j])
+            j += 1
+        end
+        res.push(ch)
+        i += size
+    end
+    return Enumerable { items: res }
+end
+
+## Generates sliding windows of size `size` over the collection.
+##
+## ### Parameters
+## - `size`: Number of items per window.
+##
+## ### Returns
+## A new `Enumerable` containing overlapping window arrays.
+pub function Enumerable.window(self, size: int) -> Enumerable
+    let res = []
+    let total = len(self.items)
+    if size <= 0 or total < size
+        return Enumerable { items: res }
+    end
+    let i = 0
+    while i <= total - size
+        let w = []
+        let j = 0
+        while j < size
+            w.push(self.items[i + j])
+            j += 1
+        end
+        res.push(w)
+        i += 1
+    end
+    return Enumerable { items: res }
+end
+
+## Pairs elements with items from another collection into 2-element tuples `[a, b]`.
+##
+## ### Parameters
+## - `other_items`: Second collection array.
+##
+## ### Returns
+## A new `Enumerable` of pairs.
+pub function Enumerable.zip(self, other_items) -> Enumerable
+    let res = []
+    let n1 = len(self.items)
+    let n2 = len(other_items)
+    let min_len = n1
+    if n2 < min_len
+        min_len = n2
+    end
+    let i = 0
+    while i < min_len
+        res.push([self.items[i], other_items[i]])
+        i += 1
+    end
+    return Enumerable { items: res }
+end
+
+## Concatenates elements with another collection.
+##
+## ### Parameters
+## - `other_items`: Array to append.
+##
+## ### Returns
+## A new combined `Enumerable`.
+pub function Enumerable.concat(self, other_items) -> Enumerable
+    return Enumerable { items: [...self.items, ...other_items] }
+end
+
+## Reverses the order of elements in the sequence.
+##
+## ### Returns
+## A new reversed `Enumerable`.
+pub function Enumerable.reverse(self) -> Enumerable
+    let res = []
+    let i = len(self.items) - 1
+    while i >= 0
+        res.push(self.items[i])
+        i -= 1
+    end
+    return Enumerable { items: res }
+end
+
+# ───────────────────────────────────────────────────────────────
+# Sorting & Grouping
+# ───────────────────────────────────────────────────────────────
+
+## Sorts elements in ascending order according to an optional key selector.
+##
+## ### Parameters
+## - `key_fn`: Optional function extracting a sort key. If null, compares elements directly.
+##
+## ### Returns
+## A new sorted `Enumerable`.
+pub function Enumerable.order_by(self, key_fn = null) -> Enumerable
+    let copy = [...self.items]
+    let n = len(copy)
+    let i = 0
+    let j = 0
+    let temp = 0
+    while i < n
+        j = 0
+        while j < n - i - 1
+            let k1 = copy[j]
+            let k2 = copy[j + 1]
+            if key_fn is not null
+                k1 = key_fn(k1)
+                k2 = key_fn(k2)
+            end
+            if k1 > k2
+                temp = copy[j]
+                copy[j] = copy[j + 1]
+                copy[j + 1] = temp
+            end
+            j += 1
+        end
+        i += 1
+    end
+    return Enumerable { items: copy }
+end
+
+## Sorts elements in descending order according to an optional key selector.
+##
+## ### Parameters
+## - `key_fn`: Optional function extracting a sort key. If null, compares elements directly.
+##
+## ### Returns
+## A new reverse-sorted `Enumerable`.
+pub function Enumerable.order_by_desc(self, key_fn = null) -> Enumerable
+    let copy = [...self.items]
+    let n = len(copy)
+    let i = 0
+    let j = 0
+    let temp = 0
+    while i < n
+        j = 0
+        while j < n - i - 1
+            let k1 = copy[j]
+            let k2 = copy[j + 1]
+            if key_fn is not null
+                k1 = key_fn(k1)
+                k2 = key_fn(k2)
+            end
+            if k1 < k2
+                temp = copy[j]
+                copy[j] = copy[j + 1]
+                copy[j + 1] = temp
+            end
+            j += 1
+        end
+        i += 1
+    end
+    return Enumerable { items: copy }
+end
+
+## Groups elements by key into a map from key to array of items.
+##
+## ### Parameters
+## - `key_fn`: Function mapping an element to a group key.
+##
+## ### Returns
+## Map where each key maps to an array of matching elements.
+pub function Enumerable.group_by(self, key_fn)
+    let groups = {}
+    for x in self.items
+        let k = key_fn(x)
+        if k not in groups
+            groups[k] = []
+        end
+        groups[k].push(x)
+    end
+    return groups
+end
+
+# ───────────────────────────────────────────────────────────────
+# Terminals & Aggregation
+# ───────────────────────────────────────────────────────────────
+
+## Materializes the pipeline into a plain standard array.
+##
+## ### Returns
+## Array containing all active pipeline elements.
+pub function Enumerable.to_array(self)
+    return [...self.items]
+end
+
+## Returns the count of elements, optionally filtered by a predicate.
+##
+## ### Parameters
+## - `predicate`: Optional filtering condition. Defaults to null.
+##
+## ### Returns
+## Number of elements matching the condition, or total count if null.
+pub function Enumerable.count(self, predicate = null) -> int
+    if predicate is null
+        return len(self.items)
+    end
+    let total = 0
+    for x in self.items
+        if predicate(x)
+            total += 1
+        end
+    end
+    return total
+end
+
+## Tests whether any elements exist, or if any element satisfies a predicate.
+##
+## ### Parameters
+## - `predicate`: Optional filter condition. Defaults to null.
+##
+## ### Returns
+## True if at least one matching item exists, false otherwise.
+pub function Enumerable.any(self, predicate = null) -> bool
+    if predicate is null
+        return len(self.items) > 0
+    end
+    for x in self.items
+        if predicate(x)
+            return true
+        end
+    end
+    return false
+end
+
+## Tests whether all elements satisfy a predicate condition.
+##
+## ### Parameters
+## - `predicate`: Condition to evaluate for every element.
+##
+## ### Returns
+## True if all elements match (or if empty), false otherwise.
+pub function Enumerable.all(self, predicate) -> bool
+    for x in self.items
+        if not predicate(x)
+            return false
+        end
+    end
+    return true
+end
+
+## Returns the first element of the sequence, or a default value if empty.
+##
+## ### Parameters
+## - `default_val`: Fallback return value when empty. Defaults to null.
+##
+## ### Returns
+## The first item, or `default_val`.
+pub function Enumerable.first(self, default_val = null)
+    if len(self.items) == 0
+        return default_val
+    end
+    return self.items[0]
+end
+
+## Returns the last element of the sequence, or a default value if empty.
+##
+## ### Parameters
+## - `default_val`: Fallback return value when empty. Defaults to null.
+##
+## ### Returns
+## The last item, or `default_val`.
+pub function Enumerable.last(self, default_val = null)
+    let total = len(self.items)
+    if total == 0
+        return default_val
+    end
+    return self.items[total - 1]
+end
+
+## Finds the first element satisfying a predicate, or returns a default value.
+##
+## ### Parameters
+## - `predicate`: Filter function.
+## - `default_val`: Fallback value. Defaults to null.
+##
+## ### Returns
+## The first matching element, or `default_val`.
+pub function Enumerable.find(self, predicate, default_val = null)
+    for x in self.items
+        if predicate(x)
+            return x
+        end
+    end
+    return default_val
+end
+
+## Tests whether the sequence contains a specific value.
+##
+## ### Parameters
+## - `val`: Value to look for.
+##
+## ### Returns
+## True if present, false otherwise.
+pub function Enumerable.contains(self, val) -> bool
+    return val in self.items
+end
+
+## Computes the arithmetic sum of elements or projected values.
+##
+## ### Parameters
+## - `selector`: Optional value selector function.
+##
+## ### Returns
+## Total numeric sum.
+pub function Enumerable.sum(self, selector = null)
+    let total = 0
+    for x in self.items
+        let v = x
+        if selector is not null
+            v = selector(x)
+        end
+        total += v
+    end
+    return total
+end
+
+## Finds the minimum element or projected value.
+##
+## ### Parameters
+## - `selector`: Optional selector function.
+##
+## ### Returns
+## Minimum value, or 0 if sequence is empty.
+pub function Enumerable.min(self, selector = null)
+    let total = len(self.items)
+    if total == 0
+        return 0
+    end
+    let min_val = self.items[0]
+    if selector is not null
+        min_val = selector(min_val)
+    end
+    let i = 1
+    while i < total
+        let curr = self.items[i]
+        if selector is not null
+            curr = selector(curr)
+        end
+        if curr < min_val
+            min_val = curr
+        end
+        i += 1
+    end
+    return min_val
+end
+
+## Finds the maximum element or projected value.
+##
+## ### Parameters
+## - `selector`: Optional selector function.
+##
+## ### Returns
+## Maximum value, or 0 if sequence is empty.
+pub function Enumerable.max(self, selector = null)
+    let total = len(self.items)
+    if total == 0
+        return 0
+    end
+    let max_val = self.items[0]
+    if selector is not null
+        max_val = selector(max_val)
+    end
+    let i = 1
+    while i < total
+        let curr = self.items[i]
+        if selector is not null
+            curr = selector(curr)
+        end
+        if curr > max_val
+            max_val = curr
+        end
+        i += 1
+    end
+    return max_val
+end
+
+## Computes the arithmetic average of numeric elements.
+##
+## ### Parameters
+## - `selector`: Optional selector function.
+##
+## ### Returns
+## Average numeric value, or 0.0 if empty.
+pub function Enumerable.average(self, selector = null)
+    let total = len(self.items)
+    if total == 0
+        return 0.0
+    end
+    let s = self.sum(selector)
+    return (s * 1.0) / total
+end
+
+## Folds an accumulator function over the elements, starting with a seed value.
+##
+## ### Parameters
+## - `seed`: Initial accumulator value.
+## - `accumulator_fn`: Function taking `(acc, item)` and returning updated accumulator.
+##
+## ### Returns
+## Final accumulated value.
+pub function Enumerable.aggregate(self, seed, accumulator_fn)
+    let acc = seed
+    for x in self.items
+        acc = accumulator_fn(acc, x)
+    end
+    return acc
+end
+
+## Executes a side-effect action function on each element in sequence.
+##
+## ### Parameters
+## - `action_fn`: Function receiving each element.
+##
+## ### Returns
+## No return value.
+pub function Enumerable.for_each(self, action_fn)
+    for x in self.items
+        action_fn(x)
+    end
+end
