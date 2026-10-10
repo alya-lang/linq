@@ -43,43 +43,70 @@ function format_nested(arr)
     return s + "]"
 end
 
-function main()
-    say "=== linq Package Showcase ==="
-    say ""
+# Slice demos below build pipelines with the always-available
+# `make_enumerable` core constructor, so each demo runs under its own
+# single feature (only the end-to-end showcase needs several slices).
 
-    # 1. Fluent Pipeline (range + where + map + take)
-    say "--- 1. Fluent Query Pipeline ---"
-    let squares = pkg::range(1, 10)
-    .where(is_odd)
-    .map(square)
-    .take(4)
-    .to_array()
-    say f"First 4 odd squares: {format_array(squares)}"
+@cfg(feature = "generators")
+function demo_generators()
+    say "--- Generators (query, range, replicate) ---"
+    let q = pkg::query([10, 20, 30])
+    say f"query items: {format_array(q.items)}"
+    let r = pkg::range(1, 5)
+    say f"range(1, 5): {format_array(r.items)}"
+    let rep = pkg::replicate("A", 3)
+    say f"replicate A x3: {format_array(rep.items)}"
     say ""
+end
 
-    # 2. Reshaping (chunk & window)
-    say "--- 2. Reshaping (chunk & window) ---"
-    let nums = [1, 2, 3, 4, 5, 6, 7]
-    let chunks = pkg::query(nums).chunk(3).to_array()
-    say f"Chunks of size 3: {format_nested(chunks)}"
-    let windows = pkg::query(nums).window(3).to_array()
-    say f"Sliding windows of size 3: {format_nested(windows)}"
-    say ""
+@cfg(not(feature = "generators"))
+function demo_generators()
+end
 
-    # 3. Sorting & Deduplication
-    say "--- 3. Sorting & Deduplication ---"
+@cfg(feature = "filtering")
+function demo_filtering()
+    say "--- Filtering (where, take, skip, distinct) ---"
     let raw = [4, 1, 3, 2, 4, 1, 5]
-    let unique_sorted = pkg::query(raw)
-    .distinct()
-    .order_by()
-    .to_array()
-    say f"Unique sorted: {format_array(unique_sorted)}"
-    let sorted_desc = pkg::query(raw).order_by_desc().to_array()
-    say f"Sorted descending: {format_array(sorted_desc)}"
+    let odds = pkg::make_enumerable(raw).where(is_odd).items
+    say f"Odd values: {format_array(odds)}"
+    let page = pkg::make_enumerable(raw).skip(2).take(3).items
+    say f"Skip 2, take 3: {format_array(page)}"
+    let uniq = pkg::make_enumerable(raw).distinct().items
+    say f"Unique values: {format_array(uniq)}"
     say ""
+end
 
-    # 4. Grouping
-    say "--- 4. Grouping by Key ---"
+@cfg(not(feature = "filtering"))
+function demo_filtering()
+end
+
+@cfg(feature = "projection")
+function demo_projection()
+    say "--- Projection (map, chunk, window, reverse) ---"
+    let doubled = pkg::make_enumerable([1, 2, 3]).map(square).items
+    say f"Squares: {format_array(doubled)}"
+    let nums = [1, 2, 3, 4, 5, 6, 7]
+    let chunks = pkg::make_enumerable(nums).chunk(3).items
+    say f"Chunks of size 3: {format_nested(chunks)}"
+    let windows = pkg::make_enumerable(nums).window(3).items
+    say f"Sliding windows of size 3: {format_nested(windows)}"
+    let rev = pkg::make_enumerable([1, 2, 3]).reverse().items
+    say f"Reversed: {format_array(rev)}"
+    say ""
+end
+
+@cfg(not(feature = "projection"))
+function demo_projection()
+end
+
+@cfg(feature = "sorting_grouping")
+function demo_sorting()
+    say "--- Sorting & Grouping ---"
+    let raw = [4, 1, 3, 2, 5]
+    let asc = pkg::make_enumerable(raw).order_by().items
+    say f"Sorted ascending: {format_array(asc)}"
+    let desc = pkg::make_enumerable(raw).order_by_desc().items
+    say f"Sorted descending: {format_array(desc)}"
     let products = [
         ["fruit", "apple"],
         ["dairy", "milk"],
@@ -87,23 +114,65 @@ function main()
         ["dairy", "cheese"],
         ["bakery", "bread"]
     ]
-    let grouped = pkg::query(products).group_by(get_category)
+    let grouped = pkg::make_enumerable(products).group_by(get_category)
     for cat in keys(grouped)
         let items = grouped[cat]
         say f"  Category '{cat}': {len(items)} item(s)"
     end
     say ""
+end
 
-    # 5. Aggregations (sum, min, max, average)
-    say "--- 5. Aggregations ---"
+@cfg(not(feature = "sorting_grouping"))
+function demo_sorting()
+end
+
+@cfg(feature = "aggregation")
+function demo_aggregation()
+    say "--- Aggregations ---"
     let values = [10, 20, 30, 40, 50]
-    let q = pkg::query(values)
+    let q = pkg::make_enumerable(values)
     say f"Count:   {q.count()}"
     say f"Sum:     {q.sum()}"
     say f"Min:     {q.min()}"
     say f"Max:     {q.max()}"
     say f"Average: {q.average()}"
+    say f"As array: {format_array(q.to_array())}"
     say ""
+end
+
+@cfg(not(feature = "aggregation"))
+function demo_aggregation()
+end
+
+@cfg(feature = "generators")
+@cfg(feature = "filtering")
+@cfg(feature = "projection")
+@cfg(feature = "aggregation")
+function demo_pipeline()
+    say "--- Fluent Query Pipeline ---"
+    let squares = pkg::range(1, 10)
+    .where(is_odd)
+    .map(square)
+    .take(4)
+    .to_array()
+    say f"First 4 odd squares: {format_array(squares)}"
+    say ""
+end
+
+function main()
+    say "=== linq Package Showcase ==="
+    say ""
+
+    demo_generators()
+    demo_filtering()
+    demo_projection()
+    demo_sorting()
+    demo_aggregation()
+    @cfg(feature = "generators")
+    @cfg(feature = "filtering")
+    @cfg(feature = "projection")
+    @cfg(feature = "aggregation")
+    demo_pipeline()
 
     say "=== All linq demonstrations completed! ==="
 end

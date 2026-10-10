@@ -5,7 +5,17 @@
 
 import "./types.alya"
 
+# Feature slices (`[features]` in `alya.toml`, all default-on), gated per
+# method so this single file needs no splitting:
+# - `filtering`: where/filter/distinct/distinct_by/take/take_while/skip/skip_while
+# - `projection`: map/flat_map/chunk/window/zip/concat/reverse
+# - `sorting_grouping`: order_by/order_by_desc/group_by
+# - `aggregation`: to_array/count/any/all/first/last/find/contains/sum/min/max/average/aggregate/for_each
+# Only `make_enumerable` stays ungated (core constructor used across slices).
+
 ## Creates a new Enumerable query pipeline wrapping the given array.
+##
+## Core constructor, always available regardless of active features.
 ##
 ## ### Parameters
 ## - `arr`: Source elements. Defaults to empty array.
@@ -27,6 +37,9 @@ end
 ##
 ## ### Returns
 ## A new `Enumerable` containing only elements that satisfied the predicate.
+##
+## Requires the `filtering` feature (default-on).
+@cfg(feature = "filtering")
 pub function Enumerable.where(self, predicate) -> Enumerable
     let res = []
     for x in self.items
@@ -44,6 +57,9 @@ end
 ##
 ## ### Returns
 ## A new filtered `Enumerable`.
+##
+## Requires the `filtering` feature (default-on).
+@cfg(feature = "filtering")
 pub function Enumerable.filter(self, predicate) -> Enumerable
     return self.where(predicate)
 end
@@ -52,6 +68,9 @@ end
 ##
 ## ### Returns
 ## A new `Enumerable` with unique elements.
+##
+## Requires the `filtering` feature (default-on).
+@cfg(feature = "filtering")
 pub function Enumerable.distinct(self) -> Enumerable
     let seen = {}
     let res = []
@@ -71,6 +90,9 @@ end
 ##
 ## ### Returns
 ## A new `Enumerable` with distinct keys.
+##
+## Requires the `filtering` feature (default-on).
+@cfg(feature = "filtering")
 pub function Enumerable.distinct_by(self, key_fn) -> Enumerable
     let seen = {}
     let res = []
@@ -91,6 +113,9 @@ end
 ##
 ## ### Returns
 ## A new `Enumerable` containing at most `count` elements.
+##
+## Requires the `filtering` feature (default-on).
+@cfg(feature = "filtering")
 pub function Enumerable.take(self, count: int) -> Enumerable
     let res = []
     let i = 0
@@ -109,6 +134,9 @@ end
 ##
 ## ### Returns
 ## A new `Enumerable` with elements taken until the first false predicate.
+##
+## Requires the `filtering` feature (default-on).
+@cfg(feature = "filtering")
 pub function Enumerable.take_while(self, predicate) -> Enumerable
     let res = []
     for x in self.items
@@ -127,6 +155,9 @@ end
 ##
 ## ### Returns
 ## A new `Enumerable` with initial elements skipped.
+##
+## Requires the `filtering` feature (default-on).
+@cfg(feature = "filtering")
 pub function Enumerable.skip(self, count: int) -> Enumerable
     let res = []
     let total = len(self.items)
@@ -148,6 +179,9 @@ end
 ##
 ## ### Returns
 ## A new `Enumerable` containing elements after the predicate became false.
+##
+## Requires the `filtering` feature (default-on).
+@cfg(feature = "filtering")
 pub function Enumerable.skip_while(self, predicate) -> Enumerable
     let res = []
     let skipping = true
@@ -175,6 +209,9 @@ end
 ##
 ## ### Returns
 ## A new `Enumerable` with projected elements.
+##
+## Requires the `projection` feature (default-on).
+@cfg(feature = "projection")
 pub function Enumerable.map(self, selector) -> Enumerable
     let res = []
     for x in self.items
@@ -190,6 +227,9 @@ end
 ##
 ## ### Returns
 ## A new flattened `Enumerable`.
+##
+## Requires the `projection` feature (default-on).
+@cfg(feature = "projection")
 pub function Enumerable.flat_map(self, selector) -> Enumerable
     let res = []
     for x in self.items
@@ -208,6 +248,9 @@ end
 ##
 ## ### Returns
 ## A new `Enumerable` where each element is an array chunk.
+##
+## Requires the `projection` feature (default-on).
+@cfg(feature = "projection")
 pub function Enumerable.chunk(self, size: int) -> Enumerable
     let res = []
     if size <= 0
@@ -235,6 +278,9 @@ end
 ##
 ## ### Returns
 ## A new `Enumerable` containing overlapping window arrays.
+##
+## Requires the `projection` feature (default-on).
+@cfg(feature = "projection")
 pub function Enumerable.window(self, size: int) -> Enumerable
     let res = []
     let total = len(self.items)
@@ -262,6 +308,9 @@ end
 ##
 ## ### Returns
 ## A new `Enumerable` of pairs.
+##
+## Requires the `projection` feature (default-on).
+@cfg(feature = "projection")
 pub function Enumerable.zip(self, other_items) -> Enumerable
     let res = []
     let n1 = len(self.items)
@@ -285,6 +334,9 @@ end
 ##
 ## ### Returns
 ## A new combined `Enumerable`.
+##
+## Requires the `projection` feature (default-on).
+@cfg(feature = "projection")
 pub function Enumerable.concat(self, other_items) -> Enumerable
     return Enumerable { items: [...self.items, ...other_items] }
 end
@@ -293,6 +345,9 @@ end
 ##
 ## ### Returns
 ## A new reversed `Enumerable`.
+##
+## Requires the `projection` feature (default-on).
+@cfg(feature = "projection")
 pub function Enumerable.reverse(self) -> Enumerable
     let res = []
     let i = len(self.items) - 1
@@ -314,6 +369,9 @@ end
 ##
 ## ### Returns
 ## A new sorted `Enumerable`.
+##
+## Requires the `sorting_grouping` feature (default-on).
+@cfg(feature = "sorting_grouping")
 pub function Enumerable.order_by(self, key_fn = null) -> Enumerable
     let copy = [...self.items]
     let n = len(copy)
@@ -348,6 +406,9 @@ end
 ##
 ## ### Returns
 ## A new reverse-sorted `Enumerable`.
+##
+## Requires the `sorting_grouping` feature (default-on).
+@cfg(feature = "sorting_grouping")
 pub function Enumerable.order_by_desc(self, key_fn = null) -> Enumerable
     let copy = [...self.items]
     let n = len(copy)
@@ -382,6 +443,9 @@ end
 ##
 ## ### Returns
 ## Map where each key maps to an array of matching elements.
+##
+## Requires the `sorting_grouping` feature (default-on).
+@cfg(feature = "sorting_grouping")
 pub function Enumerable.group_by(self, key_fn)
     let groups = {}
     for x in self.items
@@ -402,6 +466,9 @@ end
 ##
 ## ### Returns
 ## Array containing all active pipeline elements.
+##
+## Requires the `aggregation` feature (default-on).
+@cfg(feature = "aggregation")
 pub function Enumerable.to_array(self)
     return [...self.items]
 end
@@ -413,6 +480,9 @@ end
 ##
 ## ### Returns
 ## Number of elements matching the condition, or total count if null.
+##
+## Requires the `aggregation` feature (default-on).
+@cfg(feature = "aggregation")
 pub function Enumerable.count(self, predicate = null) -> int
     if predicate is null
         return len(self.items)
@@ -433,6 +503,9 @@ end
 ##
 ## ### Returns
 ## True if at least one matching item exists, false otherwise.
+##
+## Requires the `aggregation` feature (default-on).
+@cfg(feature = "aggregation")
 pub function Enumerable.any(self, predicate = null) -> bool
     if predicate is null
         return len(self.items) > 0
@@ -452,6 +525,9 @@ end
 ##
 ## ### Returns
 ## True if all elements match (or if empty), false otherwise.
+##
+## Requires the `aggregation` feature (default-on).
+@cfg(feature = "aggregation")
 pub function Enumerable.all(self, predicate) -> bool
     for x in self.items
         if not predicate(x)
@@ -468,6 +544,9 @@ end
 ##
 ## ### Returns
 ## The first item, or `default_val`.
+##
+## Requires the `aggregation` feature (default-on).
+@cfg(feature = "aggregation")
 pub function Enumerable.first(self, default_val = null)
     if len(self.items) == 0
         return default_val
@@ -482,6 +561,9 @@ end
 ##
 ## ### Returns
 ## The last item, or `default_val`.
+##
+## Requires the `aggregation` feature (default-on).
+@cfg(feature = "aggregation")
 pub function Enumerable.last(self, default_val = null)
     let total = len(self.items)
     if total == 0
@@ -498,6 +580,9 @@ end
 ##
 ## ### Returns
 ## The first matching element, or `default_val`.
+##
+## Requires the `aggregation` feature (default-on).
+@cfg(feature = "aggregation")
 pub function Enumerable.find(self, predicate, default_val = null)
     for x in self.items
         if predicate(x)
@@ -514,6 +599,9 @@ end
 ##
 ## ### Returns
 ## True if present, false otherwise.
+##
+## Requires the `aggregation` feature (default-on).
+@cfg(feature = "aggregation")
 pub function Enumerable.contains(self, val) -> bool
     return val in self.items
 end
@@ -525,6 +613,9 @@ end
 ##
 ## ### Returns
 ## Total numeric sum.
+##
+## Requires the `aggregation` feature (default-on).
+@cfg(feature = "aggregation")
 pub function Enumerable.sum(self, selector = null)
     let total = 0
     for x in self.items
@@ -544,6 +635,9 @@ end
 ##
 ## ### Returns
 ## Minimum value, or 0 if sequence is empty.
+##
+## Requires the `aggregation` feature (default-on).
+@cfg(feature = "aggregation")
 pub function Enumerable.min(self, selector = null)
     let total = len(self.items)
     if total == 0
@@ -574,6 +668,9 @@ end
 ##
 ## ### Returns
 ## Maximum value, or 0 if sequence is empty.
+##
+## Requires the `aggregation` feature (default-on).
+@cfg(feature = "aggregation")
 pub function Enumerable.max(self, selector = null)
     let total = len(self.items)
     if total == 0
@@ -604,6 +701,9 @@ end
 ##
 ## ### Returns
 ## Average numeric value, or 0.0 if empty.
+##
+## Requires the `aggregation` feature (default-on).
+@cfg(feature = "aggregation")
 pub function Enumerable.average(self, selector = null)
     let total = len(self.items)
     if total == 0
@@ -621,6 +721,9 @@ end
 ##
 ## ### Returns
 ## Final accumulated value.
+##
+## Requires the `aggregation` feature (default-on).
+@cfg(feature = "aggregation")
 pub function Enumerable.aggregate(self, seed, accumulator_fn)
     let acc = seed
     for x in self.items
@@ -636,6 +739,9 @@ end
 ##
 ## ### Returns
 ## No return value.
+##
+## Requires the `aggregation` feature (default-on).
+@cfg(feature = "aggregation")
 pub function Enumerable.for_each(self, action_fn)
     for x in self.items
         action_fn(x)

@@ -12,10 +12,130 @@ function double_num(x)
     return x * 2
 end
 
-function main()
-    let runner = bench_runner("linq Micro-Benchmarks")
+# Slice benches below build pipelines with the always-available
+# `make_enumerable` core constructor and drain through the `.items` field
+# (or scalar terminals), so each bench compiles under its own feature.
+# Only the end-to-end chain needs several slices (see bench_pipeline).
 
-    # Bench 1: Filter + Map pipeline — 50k iterations
+@cfg(feature = "generators")
+function bench_generators(runner)
+    # Bench 1: Sequence generation — 20k iterations
+    bench_start(runner, 20000)
+    let i = 0
+    while i < 20000
+        let a = pkg::range(1, 10).items
+        let b = pkg::replicate("x", 5).items
+        i += 1
+    end
+    bench_stop(runner, "range + replicate generation 20k ops")
+
+end
+
+@cfg(not(feature = "generators"))
+function bench_generators(runner)
+end
+
+@cfg(feature = "filtering")
+function bench_filtering(runner)
+    # Bench 2: Filter + distinct pipeline — 50k iterations
+    let data = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    bench_start(runner, 50000)
+    let i = 0
+    while i < 50000
+        let res = pkg::make_enumerable(data).where(is_even).items
+        i += 1
+    end
+    bench_stop(runner, "where filter 50k ops")
+
+    # Bench 3: Distinct deduplication — 20k iterations
+    let dupes = [1, 2, 2, 3, 1, 4, 3, 5, 2, 4]
+    bench_start(runner, 20000)
+    let j = 0
+    while j < 20000
+        let u = pkg::make_enumerable(dupes).distinct().items
+        j += 1
+    end
+    bench_stop(runner, "distinct deduplication 20k ops")
+
+end
+
+@cfg(not(feature = "filtering"))
+function bench_filtering(runner)
+end
+
+@cfg(feature = "projection")
+function bench_projection(runner)
+    # Bench 4: Map transformation — 50k iterations
+    let data = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    bench_start(runner, 50000)
+    let i = 0
+    while i < 50000
+        let res = pkg::make_enumerable(data).map(double_num).items
+        i += 1
+    end
+    bench_stop(runner, "map projection 50k ops")
+
+    # Bench 5: Chunking and windowing — 20k iterations
+    bench_start(runner, 20000)
+    let m = 0
+    while m < 20000
+        let c = pkg::make_enumerable(data).chunk(3).items
+        let w = pkg::make_enumerable(data).window(3).items
+        m += 1
+    end
+    bench_stop(runner, "chunk + window 20k ops")
+
+end
+
+@cfg(not(feature = "projection"))
+function bench_projection(runner)
+end
+
+@cfg(feature = "sorting_grouping")
+function bench_sorting(runner)
+    # Bench 6: Order_by ascending sort — 10k iterations
+    let unsorted = [9, 3, 7, 1, 5, 8, 2, 6, 4]
+    bench_start(runner, 10000)
+    let k = 0
+    while k < 10000
+        let s = pkg::make_enumerable(unsorted).order_by().items
+        k += 1
+    end
+    bench_stop(runner, "order_by sort 10k ops")
+
+end
+
+@cfg(not(feature = "sorting_grouping"))
+function bench_sorting(runner)
+end
+
+@cfg(feature = "aggregation")
+function bench_aggregation(runner)
+    # Bench 7: Sum, Min, Max aggregations — 50k iterations
+    let data = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    bench_start(runner, 50000)
+    let n = 0
+    while n < 50000
+        let q = pkg::make_enumerable(data)
+        q.sum()
+        q.min()
+        q.max()
+        n += 1
+    end
+    bench_stop(runner, "aggregations (sum/min/max) 50k ops")
+
+end
+
+@cfg(not(feature = "aggregation"))
+function bench_aggregation(runner)
+end
+
+@cfg(feature = "generators")
+@cfg(feature = "filtering")
+@cfg(feature = "projection")
+@cfg(feature = "aggregation")
+function bench_pipeline(runner)
+    # Bench 8: End-to-end filter + map + materialize chain — 50k iterations
     let data = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
     bench_start(runner, 50000)
     let i = 0
@@ -24,48 +144,21 @@ function main()
         i += 1
     end
     bench_stop(runner, "where + map pipeline 50k ops")
+end
 
-    # Bench 2: Distinct deduplication — 20k iterations
-    let dupes = [1, 2, 2, 3, 1, 4, 3, 5, 2, 4]
-    bench_start(runner, 20000)
-    let j = 0
-    while j < 20000
-        pkg::query(dupes).distinct().to_array()
-        j += 1
-    end
-    bench_stop(runner, "distinct deduplication 20k ops")
+function main()
+    let runner = bench_runner("linq Micro-Benchmarks")
 
-    # Bench 3: Order_by ascending sort — 10k iterations
-    let unsorted = [9, 3, 7, 1, 5, 8, 2, 6, 4]
-    bench_start(runner, 10000)
-    let k = 0
-    while k < 10000
-        pkg::query(unsorted).order_by().to_array()
-        k += 1
-    end
-    bench_stop(runner, "order_by sort 10k ops")
-
-    # Bench 4: Chunking and windowing — 20k iterations
-    bench_start(runner, 20000)
-    let m = 0
-    while m < 20000
-        pkg::query(data).chunk(3).to_array()
-        pkg::query(data).window(3).to_array()
-        m += 1
-    end
-    bench_stop(runner, "chunk + window 20k ops")
-
-    # Bench 5: Sum, Min, Max aggregations — 50k iterations
-    bench_start(runner, 50000)
-    let n = 0
-    while n < 50000
-        let q = pkg::query(data)
-        q.sum()
-        q.min()
-        q.max()
-        n += 1
-    end
-    bench_stop(runner, "aggregations (sum/min/max) 50k ops")
+    bench_generators(runner)
+    bench_filtering(runner)
+    bench_projection(runner)
+    bench_sorting(runner)
+    bench_aggregation(runner)
+    @cfg(feature = "generators")
+    @cfg(feature = "filtering")
+    @cfg(feature = "projection")
+    @cfg(feature = "aggregation")
+    bench_pipeline(runner)
 
     bench_summary(runner)
 end

@@ -7,6 +7,10 @@
 import "./types.alya"
 import "./pipeline.alya"
 
+# The `generators` slice gates the entry-point factories below
+# (query/from_array/range/replicate); `make_enumerable` in
+# `pipeline.alya` stays ungated as the cross-slice core constructor.
+
 # ───────────────────────────────────────────────────────────────
 # Primary Factory APIs
 # ───────────────────────────────────────────────────────────────
@@ -23,6 +27,9 @@ import "./pipeline.alya"
 ## ```alya
 ## let evens = query([1, 2, 3, 4]).where(fn(x) return x % 2 == 0 end).to_array()
 ## ```
+##
+## Requires the `generators` feature (default-on).
+@cfg(feature = "generators")
 pub function query(arr = []) -> Enumerable
     return make_enumerable(arr)
 end
@@ -34,6 +41,9 @@ end
 ##
 ## ### Returns
 ## An `Enumerable` instance.
+##
+## Requires the `generators` feature (default-on).
+@cfg(feature = "generators")
 pub function from_array(arr = []) -> Enumerable
     return make_enumerable(arr)
 end
@@ -51,6 +61,9 @@ end
 ## ```alya
 ## let squares = range(1, 5).map(fn(x) return x * x end).to_array() # [1, 4, 9, 16, 25]
 ## ```
+##
+## Requires the `generators` feature (default-on).
+@cfg(feature = "generators")
 pub function range(start: int = 0, count: int = 10) -> Enumerable
     let res = []
     let i = 0
@@ -74,6 +87,9 @@ end
 ## ```alya
 ## let items = replicate("A", 3).to_array() # ["A", "A", "A"]
 ## ```
+##
+## Requires the `generators` feature (default-on).
+@cfg(feature = "generators")
 pub function replicate(val, count: int = 1) -> Enumerable
     let res = []
     let i = 0

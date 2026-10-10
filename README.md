@@ -30,7 +30,7 @@ linq/
 ├── .editorconfig           # Uniform formatting rules across IDEs and editors
 ├── .gitignore              # Ecosystem standard ignore filters
 ├── .vscode/                # VS Code workspace settings, DAP launch configurations & tasks
-├── alya.toml               # Package manifest with dependencies and metadata
+├── alya.toml               # Package manifest with dependencies, [features] and metadata
 ├── src/
 │   ├── lib.alya            # Public API facade and constructor exports
 │   ├── types.alya          # Core Enumerable struct definition
@@ -62,6 +62,29 @@ Or install it directly using the Alya package CLI:
 ```bash
 alya add linq --git https://github.com/alya-lang/linq --branch main
 alya install
+```
+
+### Package Features
+
+| Feature | Default | Description |
+|:---|:---:|:---|
+| `filtering` | ✅ | Selection and slicing (`where`, `filter`, `distinct`, `take`, `skip`, ...). |
+| `projection` | ✅ | Transformation and reshaping (`map`, `flat_map`, `chunk`, `window`, `zip`, `concat`, `reverse`). |
+| `sorting_grouping` | ✅ | Ordering and buckets (`order_by`, `order_by_desc`, `group_by`). |
+| `aggregation` | ✅ | Terminals and reductions (`to_array`, `count`, `sum`, `min`, `max`, `average`, `aggregate`, `for_each`, ...). |
+| `generators` | ✅ | Entry-point factories (`query`, `from_array`, `range`, `replicate`). |
+
+```bash
+# Full build (default)
+alya install
+alya test
+
+# Slim build (`Enumerable` core only; slices drop from the public API)
+alya install --no-default-features
+alya test --no-default-features
+
+# Selective slice (e.g. filtering only)
+alya test --no-default-features --features filtering
 ```
 
 ---

@@ -24,117 +24,167 @@ function get_length(s)
     return len(s)
 end
 
-function main()
-    test_suite("linq Test Suite")
-    let r = runner_new()
+function is_over_hundred(x)
+    return x > 100
+end
 
+function tag_row(row)
+    row.push(0)
+    return row
+end
+
+# Slice helpers below build pipelines with the always-available
+# `make_enumerable` core constructor and read results through the `.items`
+# field, so each helper compiles under its own single feature (no
+# cross-slice method calls). Only the end-to-end chain needs several
+# slices at once (see test_chaining).
+
+@cfg(feature = "generators")
+function test_generators(r)
+    # 1. Generators (query, from_array, range & replicate)
     # ═══════════════════════════════════════════════════════════
-    # 1. Generators (range & repeat)
-    # ═══════════════════════════════════════════════════════════
-    let r_arr = pkg::range(1, 5).to_array()
+    let rq = pkg::range(1, 5)
+    let r_arr = rq.items
     runner_assert_eq(r, len(r_arr), 5, "range(1, 5) produces 5 elements")
     runner_assert_eq(r, r_arr[0], 1, "range starts at 1")
     runner_assert_eq(r, r_arr[4], 5, "range ends at 5")
 
-    let rep_arr = pkg::replicate("A", 3).to_array()
+    let rep = pkg::replicate("A", 3)
+    let rep_arr = rep.items
     runner_assert_eq(r, len(rep_arr), 3, "replicate produces 3 elements")
     runner_assert_str_eq(r, rep_arr[0], "A", "repeated element 0 is 'A'")
     runner_assert_str_eq(r, rep_arr[2], "A", "repeated element 2 is 'A'")
 
-    # ═══════════════════════════════════════════════════════════
+    let q = pkg::query([1, 2, 3])
+    runner_assert_eq(r, len(q.items), 3, "query wraps 3 elements")
+    runner_assert_eq(r, q.items[0], 1, "query first element is 1")
+
+    let f = pkg::from_array([4, 5])
+    runner_assert_eq(r, len(f.items), 2, "from_array wraps 2 elements")
+    runner_assert_eq(r, f.items[0], 4, "from_array first element is 4")
+end
+
+@cfg(not(feature = "generators"))
+function test_generators(r)
+end
+
+@cfg(feature = "filtering")
+function test_filtering(r)
     # 2. Filtering (where, filter, take, skip)
     # ═══════════════════════════════════════════════════════════
     let nums = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-    let evens = pkg::query(nums).where(is_even).to_array()
+    let evens = pkg::make_enumerable(nums).where(is_even).items
     runner_assert_eq(r, len(evens), 5, "where(is_even) produces 5 elements")
     runner_assert_eq(r, evens[0], 2, "first even is 2")
     runner_assert_eq(r, evens[4], 10, "last even is 10")
 
-    let filtered = pkg::query(nums).filter(is_even).to_array()
+    let filtered = pkg::make_enumerable(nums).filter(is_even).items
     runner_assert_eq(r, len(filtered), 5, "filter() alias behaves identically")
 
-    let taken = pkg::query(nums).take(3).to_array()
+    let taken = pkg::make_enumerable(nums).take(3).items
     runner_assert_eq(r, len(taken), 3, "take(3) takes 3 items")
     runner_assert_eq(r, taken[2], 3, "taken[2] is 3")
 
-    let taken_while = pkg::query(nums).take_while(is_less_than_five).to_array()
+    let taken_while = pkg::make_enumerable(nums).take_while(is_less_than_five).items
     runner_assert_eq(r, len(taken_while), 4, "take_while(<5) takes 4 items (1..4)")
 
-    let skipped = pkg::query(nums).skip(8).to_array()
+    let skipped = pkg::make_enumerable(nums).skip(8).items
     runner_assert_eq(r, len(skipped), 2, "skip(8) leaves 2 items (9, 10)")
     runner_assert_eq(r, skipped[0], 9, "first skipped item is 9")
 
-    let skipped_while = pkg::query(nums).skip_while(is_less_than_five).to_array()
+    let skipped_while = pkg::make_enumerable(nums).skip_while(is_less_than_five).items
     runner_assert_eq(r, len(skipped_while), 6, "skip_while(<5) leaves 6 items (5..10)")
     runner_assert_eq(r, skipped_while[0], 5, "first item after skip_while is 5")
 
-    # ═══════════════════════════════════════════════════════════
     # 3. Deduplication (distinct, distinct_by)
     # ═══════════════════════════════════════════════════════════
     let dupes = [1, 2, 2, 3, 1, 4, 3, 5]
-    let uniq = pkg::query(dupes).distinct().to_array()
+    let uniq = pkg::make_enumerable(dupes).distinct().items
     runner_assert_eq(r, len(uniq), 5, "distinct() produces 5 unique items")
     runner_assert_eq(r, uniq[0], 1, "uniq[0] is 1")
     runner_assert_eq(r, uniq[4], 5, "uniq[4] is 5")
 
     let pairs = [[1, "apple"], [2, "banana"], [1, "cherry"]]
-    let uniq_pairs = pkg::query(pairs).distinct_by(get_id).to_array()
+    let uniq_pairs = pkg::make_enumerable(pairs).distinct_by(get_id).items
     runner_assert_eq(r, len(uniq_pairs), 2, "distinct_by produces 2 distinct ids")
+end
 
+@cfg(not(feature = "filtering"))
+function test_filtering(r)
+end
+
+@cfg(feature = "projection")
+function test_projection(r)
+    # 4. Projections & Reshaping (map, flat_map, chunk, window, zip, concat, reverse)
     # ═══════════════════════════════════════════════════════════
-    # 4. Projections & Reshaping (map, flat_map, chunk, window)
-    # ═══════════════════════════════════════════════════════════
-    let doubled = pkg::query([1, 2, 3]).map(double_num).to_array()
+    let doubled = pkg::make_enumerable([1, 2, 3]).map(double_num).items
     runner_assert_eq(r, doubled[0], 2, "mapped 1 -> 2")
     runner_assert_eq(r, doubled[1], 4, "mapped 2 -> 4")
     runner_assert_eq(r, doubled[2], 6, "mapped 3 -> 6")
 
     let nested = [[1, 2], [3, 4], [5]]
     function identity_fn(x) return x end
-    let flattened = pkg::query(nested).flat_map(identity_fn).to_array()
+    let flattened = pkg::make_enumerable(nested).flat_map(identity_fn).items
     runner_assert_eq(r, len(flattened), 5, "flat_map flattens sub-arrays to 5 items")
     runner_assert_eq(r, flattened[4], 5, "flattened[4] is 5")
 
-    let chunks = pkg::query([1, 2, 3, 4, 5]).chunk(2).to_array()
+    let chunks = pkg::make_enumerable([1, 2, 3, 4, 5]).chunk(2).items
     runner_assert_eq(r, len(chunks), 3, "chunk(2) creates 3 chunks")
     runner_assert_eq(r, len(chunks[0]), 2, "first chunk has 2 items")
     runner_assert_eq(r, len(chunks[2]), 1, "last chunk has 1 item")
 
-    let windows = pkg::query([1, 2, 3, 4, 5]).window(3).to_array()
+    let windows = pkg::make_enumerable([1, 2, 3, 4, 5]).window(3).items
     runner_assert_eq(r, len(windows), 3, "window(3) over 5 items creates 3 windows")
     runner_assert_eq(r, windows[0][0], 1, "window 0 starts at 1")
     runner_assert_eq(r, windows[0][2], 3, "window 0 ends at 3")
 
-    let zipped = pkg::query([1, 2, 3]).zip(["a", "b", "c"]).to_array()
+    let zipped = pkg::make_enumerable([1, 2, 3]).zip(["a", "b", "c"]).items
     runner_assert_eq(r, len(zipped), 3, "zip produces 3 pairs")
     runner_assert_eq(r, zipped[0][0], 1, "zip pair 0 item 0 is 1")
     runner_assert_str_eq(r, zipped[0][1], "a", "zip pair 0 item 1 is 'a'")
 
-    let reversed = pkg::query([1, 2, 3]).reverse().to_array()
+    let joined = pkg::make_enumerable([1, 2]).concat([3, 4]).items
+    runner_assert_eq(r, len(joined), 4, "concat combines both arrays")
+    runner_assert_eq(r, joined[0], 1, "concat[0] is 1")
+    runner_assert_eq(r, joined[3], 4, "concat[3] is 4")
+
+    let reversed = pkg::make_enumerable([1, 2, 3]).reverse().items
     runner_assert_eq(r, reversed[0], 3, "reverse[0] is 3")
     runner_assert_eq(r, reversed[2], 1, "reverse[2] is 1")
+end
 
-    # ═══════════════════════════════════════════════════════════
+@cfg(not(feature = "projection"))
+function test_projection(r)
+end
+
+@cfg(feature = "sorting_grouping")
+function test_sorting_grouping(r)
     # 5. Sorting & Grouping
     # ═══════════════════════════════════════════════════════════
     let unsorted = [5, 2, 9, 1, 7]
-    let sorted_asc = pkg::query(unsorted).order_by().to_array()
+    let sorted_asc = pkg::make_enumerable(unsorted).order_by().items
     runner_assert_eq(r, sorted_asc[0], 1, "order_by first is 1")
     runner_assert_eq(r, sorted_asc[4], 9, "order_by last is 9")
 
-    let sorted_desc = pkg::query(unsorted).order_by_desc().to_array()
+    let sorted_desc = pkg::make_enumerable(unsorted).order_by_desc().items
     runner_assert_eq(r, sorted_desc[0], 9, "order_by_desc first is 9")
     runner_assert_eq(r, sorted_desc[4], 1, "order_by_desc last is 1")
 
     let words = ["cat", "dog", "elephant", "bat", "ox"]
-    let grouped = pkg::query(words).group_by(get_length)
+    let grouped = pkg::make_enumerable(words).group_by(get_length)
     runner_assert_eq(r, len(grouped[3]), 3, "3-letter words count is 3 (cat, dog, bat)")
     runner_assert_eq(r, len(grouped[2]), 1, "2-letter words count is 1 (ox)")
+end
 
-    # ═══════════════════════════════════════════════════════════
+@cfg(not(feature = "sorting_grouping"))
+function test_sorting_grouping(r)
+end
+
+@cfg(feature = "aggregation")
+function test_aggregation(r)
     # 6. Terminals & Aggregation
     # ═══════════════════════════════════════════════════════════
-    let q = pkg::query([10, 20, 30, 40])
+    let q = pkg::make_enumerable([10, 20, 30, 40])
     runner_assert_eq(r, q.count(), 4, "q.count() is 4")
     runner_assert_eq(r, q.count(is_even), 4, "q.count(is_even) is 4")
     runner_assert_true(r, q.any(), "q.any() is true")
@@ -143,6 +193,8 @@ function main()
 
     runner_assert_eq(r, q.first(), 10, "q.first() is 10")
     runner_assert_eq(r, q.last(), 40, "q.last() is 40")
+    runner_assert_eq(r, q.find(is_even), 10, "q.find(is_even) is 10")
+    runner_assert_eq(r, q.find(is_over_hundred, -1), -1, "q.find returns default when absent")
     runner_assert_true(r, q.contains(30), "q.contains(30) is true")
     runner_assert_false(r, q.contains(99), "q.contains(99) is false")
 
@@ -157,7 +209,29 @@ function main()
     let aggregated = q.aggregate(0, add_acc)
     runner_assert_eq(r, aggregated, 100, "q.aggregate yields 100")
 
-    # ═══════════════════════════════════════════════════════════
+    # for_each runs its action on every element (mutating tag rows)
+    let grid = [[1], [2]]
+    pkg::make_enumerable(grid).for_each(tag_row)
+    runner_assert_eq(r, len(grid[0]), 2, "for_each visits the first element")
+    runner_assert_eq(r, len(grid[1]), 2, "for_each visits the second element")
+
+    let materialized = q.to_array()
+    runner_assert_eq(r, len(materialized), 4, "to_array materializes 4 items")
+    runner_assert_eq(r, materialized[3], 40, "to_array[3] is 40")
+end
+
+@cfg(not(feature = "aggregation"))
+function test_aggregation(r)
+end
+
+# The chained pipeline spans generators + filtering + projection +
+# aggregation, so both the definition and the call in main() carry the
+# full conjunction instead of an empty fallback.
+@cfg(feature = "generators")
+@cfg(feature = "filtering")
+@cfg(feature = "projection")
+@cfg(feature = "aggregation")
+function test_chaining(r)
     # 7. Method Chaining Pipeline
     # ═══════════════════════════════════════════════════════════
     let pipeline_res = pkg::range(1, 20)
@@ -169,6 +243,22 @@ function main()
     runner_assert_eq(r, pipeline_res[0], 4, "first pipeline item is 4")
     runner_assert_eq(r, pipeline_res[1], 8, "second pipeline item is 8")
     runner_assert_eq(r, pipeline_res[2], 12, "third pipeline item is 12")
+end
+
+function main()
+    test_suite("linq Test Suite")
+    let r = runner_new()
+
+    test_generators(r)
+    test_filtering(r)
+    test_projection(r)
+    test_sorting_grouping(r)
+    test_aggregation(r)
+    @cfg(feature = "generators")
+    @cfg(feature = "filtering")
+    @cfg(feature = "projection")
+    @cfg(feature = "aggregation")
+    test_chaining(r)
 
     let failed = runner_summary(r)
     if failed > 0
